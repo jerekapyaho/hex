@@ -15,7 +15,6 @@
 extern crate ansi_term;
 extern crate clap;
 
-use atty::Stream;
 use clap::ArgMatches;
 use no_color::is_no_color;
 use std::env;
@@ -23,6 +22,7 @@ use std::error::Error;
 use std::f64;
 use std::fs;
 use std::io::BufReader;
+use std::io::IsTerminal;
 use std::io::{self, BufRead, Read, Write};
 
 /// arg cols
@@ -41,9 +41,11 @@ pub const ARG_ARR: &str = "array";
 pub const ARG_FNC: &str = "func";
 /// arg places
 pub const ARG_PLC: &str = "places";
+/// arg prefix
+pub const ARG_PFX: &str = "prefix";
 
-const ARGS: [&str; 8] = [
-    ARG_COL, ARG_LEN, ARG_FMT, ARG_INP, ARG_CLR, ARG_ARR, ARG_FNC, ARG_PLC,
+const ARGS: [&str; 9] = [
+    ARG_COL, ARG_LEN, ARG_FMT, ARG_INP, ARG_CLR, ARG_ARR, ARG_FNC, ARG_PLC, ARG_PFX,
 ];
 
 const DBG: u8 = 0x0;
@@ -57,7 +59,7 @@ const DBG: u8 = 0x0;
 /// b ⇒ Binary
 /// e ⇒ LowerExp
 /// E ⇒ UpperExp
-/// evaulate for traits implementation
+/// evaluate for traits implementation
 #[derive(Copy, Clone, Debug)]
 pub enum Format {
     /// octal format
@@ -76,6 +78,36 @@ pub enum Format {
     UpperExp,
     /// unknown format
     Unknown,
+}
+
+impl Format {
+    /// Formats a given u8 according to the base Format
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The byte to be formatted
+    /// * `prefix` - whether or not to add a prefix
+    fn format(&self, data: u8, prefix: bool) -> String {
+        if prefix {
+            match &self {
+                Self::Octal => format!("{:#06o}", data),
+                Self::LowerHex => format!("{:#04x}", data),
+                Self::UpperHex => format!("{:#04X}", data),
+                Self::Binary => format!("{:#010b}", data),
+                _ => panic!("format is not implemented for this Format"),
+            }
+            .to_string()
+        } else {
+            match &self {
+                Self::Octal => format!("{:04o}", data),
+                Self::LowerHex => format!("{:02x}", data),
+                Self::UpperHex => format!("{:02X}", data),
+                Self::Binary => format!("{:08b}", data),
+                _ => panic!("format is not implemented for this Format"),
+            }
+            .to_string()
+        }
+    }
 }
 
 /// Line structure for hex output
@@ -140,70 +172,27 @@ pub fn print_offset(w: &mut impl Write, b: u64) -> io::Result<()> {
     write!(w, "{}: ", offset(b))
 }
 
-/// hex octal, takes u8
-pub fn hex_octal(b: u8) -> String {
-    format!("{:#06o}", b)
-}
-
-/// hex lower hex, takes u8
-pub fn hex_lower_hex(b: u8) -> String {
-    format!("{:#04x}", b)
-}
-
-/// hex upper hex, takes u8
-pub fn hex_upper_hex(b: u8) -> String {
-    format!("{:#04X}", b)
-}
-
-/// hex binary, takes u8
-pub fn hex_binary(b: u8) -> String {
-    format!("{:#010b}", b)
-}
-
 /// print byte to std out
-pub fn print_byte(w: &mut impl Write, b: u8, format: Format, colorize: bool) -> io::Result<()> {
+pub fn print_byte(
+    w: &mut impl Write,
+    b: u8,
+    format: Format,
+    colorize: bool,
+    prefix: bool,
+) -> io::Result<()> {
+    let fmt_string = format.format(b, prefix);
     if colorize {
         // note, for color testing: for (( i = 0; i < 256; i++ )); do echo "$(tput setaf $i)This is ($i) $(tput sgr0)"; done
         let color = byte_to_color(b);
-        match format {
-            Format::Octal => write!(
-                w,
-                "{} ",
-                ansi_term::Style::new()
-                    .fg(ansi_term::Color::Fixed(color))
-                    .paint(hex_octal(b))
-            ),
-            Format::LowerHex => write!(
-                w,
-                "{} ",
-                ansi_term::Style::new()
-                    .fg(ansi_term::Color::Fixed(color))
-                    .paint(hex_lower_hex(b))
-            ),
-            Format::UpperHex => write!(
-                w,
-                "{} ",
-                ansi_term::Style::new()
-                    .fg(ansi_term::Color::Fixed(color))
-                    .paint(hex_upper_hex(b))
-            ),
-            Format::Binary => write!(
-                w,
-                "{} ",
-                ansi_term::Style::new()
-                    .fg(ansi_term::Color::Fixed(color))
-                    .paint(hex_binary(b))
-            ),
-            _ => write!(w, "unk_fmt "),
-        }
+        write!(
+            w,
+            "{} ",
+            ansi_term::Style::new()
+                .fg(ansi_term::Color::Fixed(color))
+                .paint(fmt_string)
+        )
     } else {
-        match format {
-            Format::Octal => write!(w, "{} ", hex_octal(b)),
-            Format::LowerHex => write!(w, "{} ", hex_lower_hex(b)),
-            Format::UpperHex => write!(w, "{} ", hex_upper_hex(b)),
-            Format::Binary => write!(w, "{} ", hex_binary(b)),
-            _ => write!(w, "unk_fmt "),
-        }
+        write!(w, "{} ", fmt_string)
     }
 }
 
@@ -247,10 +236,16 @@ pub fn append_ascii(target: &mut Vec<u8>, b: u8, colorize: bool) {
 pub fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
     let mut column_width: u64 = 10;
     let mut truncate_len: u64 = 0x0;
-    if let Some(len) = matches.value_of("func") {
+    if let Some(len) = matches.get_one::<String>("func") {
         let mut p: usize = 4;
-        if let Some(places) = matches.value_of("places") {
-            p = places.parse::<usize>().unwrap();
+        if let Some(places) = matches.get_one::<String>("places") {
+            p = match places.parse::<usize>() {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("-p, --places <integer> expected. {:?}", e);
+                    return Err(Box::new(e));
+                }
+            }
         }
         output_function(len.parse::<u64>().unwrap(), p);
     } else {
@@ -264,23 +259,36 @@ pub fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
             Box::new(BufReader::new(io::stdin()))
         } else {
             Box::new(BufReader::new(fs::File::open(
-                matches.value_of(ARG_INP).unwrap(),
+                matches.get_one::<String>(ARG_INP).unwrap(),
             )?))
         };
         let mut format_out = Format::LowerHex;
         let mut colorize = true;
+        let mut prefix = true;
 
-        if let Some(columns) = matches.value_of(ARG_COL) {
-            column_width = columns.parse::<u64>().unwrap(); //turbofish
+        if let Some(columns) = matches.get_one::<String>(ARG_COL) {
+            column_width = match columns.parse::<u64>() {
+                Ok(column_width) => column_width,
+                Err(e) => {
+                    eprintln!("-c, --cols <integer> expected. {:?}", e);
+                    return Err(Box::new(e));
+                }
+            }
         }
 
-        if let Some(length) = matches.value_of(ARG_LEN) {
-            truncate_len = length.parse::<u64>()?;
+        if let Some(length) = matches.get_one::<String>(ARG_LEN) {
+            truncate_len = match length.parse::<u64>() {
+                Ok(truncate_len) => truncate_len,
+                Err(e) => {
+                    eprintln!("-l, --len <integer> expected. {:?}", e);
+                    return Err(Box::new(e));
+                }
+            }
         }
 
-        if let Some(format) = matches.value_of(ARG_FMT) {
+        if let Some(format) = matches.get_one::<String>(ARG_FMT) {
             // o, x, X, p, b, e, E
-            match format {
+            match format.as_str() {
                 "o" => format_out = Format::Octal,
                 "x" => format_out = Format::LowerHex,
                 "X" => format_out = Format::UpperHex,
@@ -301,21 +309,20 @@ pub fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
         // prevent term color codes being sent to stdout
         // test: cat Cargo.toml | target/debug/hx | more
         // override via ARG_CLR below
-        if !atty::is(Stream::Stdout) {
+        if !io::stdout().is_terminal() {
             colorize = false;
         }
 
-        if let Some(color) = matches.value_of(ARG_CLR) {
-            let color_v = color.parse::<u8>().unwrap();
-            if color_v == 1 {
-                colorize = true;
-            } else {
-                colorize = false;
-            }
+        if let Some(color) = matches.get_one::<String>(ARG_CLR) {
+            colorize = color.parse::<u8>().unwrap() == 1;
+        }
+
+        if let Some(prefix_flag) = matches.get_one::<String>(ARG_PFX) {
+            prefix = prefix_flag.parse::<u8>().unwrap() == 1;
         }
 
         // array output mode is mutually exclusive
-        if let Some(array) = matches.value_of(ARG_ARR) {
+        if let Some(array) = matches.get_one::<String>(ARG_ARR) {
             output_array(array, buf, truncate_len, column_width)?;
         } else {
             // Transforms this Read instance to an Iterator over its bytes.
@@ -338,7 +345,7 @@ pub fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
                 for hex in line.hex_body.iter() {
                     offset_counter += 1;
                     byte_column += 1;
-                    print_byte(&mut locked, *hex, format_out, colorize)?;
+                    print_byte(&mut locked, *hex, format_out, colorize, prefix)?;
                     append_ascii(&mut ascii_line.ascii, *hex, colorize);
                 }
 
@@ -372,10 +379,7 @@ pub fn run(matches: ArgMatches) -> Result<(), Box<dyn Error>> {
 #[allow(clippy::absurd_extreme_comparisons)]
 pub fn is_stdin(matches: ArgMatches) -> Result<bool, Box<dyn Error>> {
     let mut is_stdin = false;
-    if DBG > 0 {
-        dbg!(env::args().len(), matches.args.len());
-    }
-    if let Some(file) = matches.value_of(ARG_INP) {
+    if let Some(file) = matches.get_one::<String>(ARG_INP) {
         if DBG > 0 {
             dbg!(file);
         }
@@ -385,7 +389,7 @@ pub fn is_stdin(matches: ArgMatches) -> Result<bool, Box<dyn Error>> {
             dbg!(nth1);
         }
         is_stdin = ARGS.iter().any(|arg| matches.index_of(arg) == Some(2));
-    } else if matches.args.is_empty() {
+    } else if !matches.args_present() {
         is_stdin = true;
     }
     if DBG > 0 {
@@ -429,16 +433,14 @@ pub fn output_array(
             i += 1;
             if i == page.bytes && array_format != "g" {
                 if array_format != "f" {
-                    write!(locked, "{}", hex_lower_hex(*hex))?;
+                    write!(locked, "{}", Format::LowerHex.format(*hex, true))?;
                 } else {
-                    write!(locked, "{}uy", hex_lower_hex(*hex))?;
+                    write!(locked, "{}uy", Format::LowerHex.format(*hex, true))?;
                 }
+            } else if array_format != "f" {
+                write!(locked, "{}, ", Format::LowerHex.format(*hex, true))?;
             } else {
-                if array_format != "f" {
-                    write!(locked, "{}, ", hex_lower_hex(*hex))?;
-                } else {
-                    write!(locked, "{}uy; ", hex_lower_hex(*hex))?;
-                }
+                write!(locked, "{}uy; ", Format::LowerHex.format(*hex, true))?;
             }
         }
         writeln!(locked)?;
@@ -532,32 +534,56 @@ mod tests {
     #[test]
     pub fn test_hex_octal() {
         let b: u8 = 0x6;
-        assert_eq!(hex_octal(b), "0o0006");
-        assert_eq!(hex_octal(b), format!("{:#06o}", b));
+
+        //with prefix
+        assert_eq!(Format::Octal.format(b, true), "0o0006");
+        assert_eq!(Format::Octal.format(b, true), format!("{:#06o}", b));
+
+        //without prefix
+        assert_eq!(Format::Octal.format(b, false), "0006");
+        assert_eq!(Format::Octal.format(b, false), format!("{:04o}", b));
     }
 
     /// hex lower hex, takes u8
     #[test]
     fn test_hex_lower_hex() {
         let b: u8 = <u8>::max_value(); // 255
-        assert_eq!(hex_lower_hex(b), "0xff");
-        assert_eq!(hex_lower_hex(b), format!("{:#04x}", b));
+
+        //with prefix
+        assert_eq!(Format::LowerHex.format(b, true), "0xff");
+        assert_eq!(Format::LowerHex.format(b, true), format!("{:#04x}", b));
+
+        //without prefix
+        assert_eq!(Format::LowerHex.format(b, false), "ff");
+        assert_eq!(Format::LowerHex.format(b, false), format!("{:02x}", b));
     }
 
     /// hex upper hex, takes u8
     #[test]
     fn test_hex_upper_hex() {
         let b: u8 = <u8>::max_value();
-        assert_eq!(hex_upper_hex(b), "0xFF");
-        assert_eq!(hex_upper_hex(b), format!("{:#04X}", b));
+
+        //with prefix
+        assert_eq!(Format::UpperHex.format(b, true), "0xFF");
+        assert_eq!(Format::UpperHex.format(b, true), format!("{:#04X}", b));
+
+        // without prefix
+        assert_eq!(Format::UpperHex.format(b, false), "FF");
+        assert_eq!(Format::UpperHex.format(b, false), format!("{:02X}", b));
     }
 
     /// hex binary, takes u8
     #[test]
     fn test_hex_binary() {
         let b: u8 = <u8>::max_value();
-        assert_eq!(hex_binary(b), "0b11111111");
-        assert_eq!(hex_binary(b), format!("{:#010b}", b));
+
+        // with prefix
+        assert_eq!(Format::Binary.format(b, true), "0b11111111");
+        assert_eq!(Format::Binary.format(b, true), format!("{:#010b}", b));
+
+        // without prefix
+        assert_eq!(Format::Binary.format(b, false), "11111111");
+        assert_eq!(Format::Binary.format(b, false), format!("{:08b}", b));
     }
 
     #[test]

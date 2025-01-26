@@ -2,7 +2,10 @@
 
 Futuristic take on hexdump.
 
-[hx](https://github.com/sitkevij/hex) accepts a file path as input and outputs a hexadecimal colorized view to stdout.
+[hx](https://github.com/sitkevij/hex) accepts a file path or stdin as input and outputs
+a hexadecimal colorized view to stdout.
+
+[hx](https://github.com/sitkevij/hex) with file path as input, outputting colorized hexadecimal:
 
 ```sh
 $ hx tests/files/alphanumeric.txt
@@ -16,10 +19,10 @@ $ hx tests/files/alphanumeric.txt
    bytes: 68
 ```
 
-[hx](https://github.com/sitkevij/hex) also accepts stdin as input.
+[hx](https://github.com/sitkevij/hex) with stdin as input, outputting colorized hexadecimal:
 
 ```sh
-cat "tests/files/alphanumeric.txt" | hx
+cat tests/files/alphanumeric.txt | hx
 0x000000: 0x61 0x62 0x63 0x64 0x65 0x66 0x67 0x68 0x69 0x6a abcdefghij
 0x00000a: 0x6b 0x69 0x6c 0x6d 0x6e 0x6f 0x70 0x71 0x72 0x73 kilmnopqrs
 0x000014: 0x74 0x75 0x76 0x77 0x78 0x79 0x7a 0x30 0x31 0x32 tuvwxyz012
@@ -30,15 +33,16 @@ cat "tests/files/alphanumeric.txt" | hx
    bytes: 68
 ```
 
-[![build](https://travis-ci.org/sitkevij/hex.svg?branch=master)](https://travis-ci.org/sitkevij/hex)
-[![coverage](https://img.shields.io/codecov/c/github/sitkevij/hex/master.svg)](https://codecov.io/gh/sitkevij/hex)
+[![crates.io](https://img.shields.io/crates/v/hx.svg)](https://crates.io/crates/hx)
+[![build status](https://github.com/sitkevij/hex/workflows/ci/badge.svg)](https://github.com/sitkevij/hex/actions)
 
 ## quick links
 
-* [install](#install)
-* [features](#features)
-* [manual](#manual)
-* [license](#license)
+- [examples](#examples)
+- [installation](#installation)
+- [features](#features)
+- [help](#help)
+- [license](#license)
 
 ## examples
 
@@ -60,7 +64,13 @@ cat "tests/files/alphanumeric.txt" | hx
 
 ![octal hex output format](https://raw.githubusercontent.com/sitkevij/hex/master/assets/hex_screenshot_macos_format_o.png)
 
-## install
+## installation
+
+### packaging availability
+
+`hx` is packaged and available for install on the following platforms:
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/hx-hexdump.svg)](https://repology.org/project/hx-hexdump/versions)
 
 ### crates.io install
 
@@ -88,7 +98,8 @@ cargo install --path .
 
 Which will compile the release version, run tests and install release binary to `<USERDIR>/.cargo/bin/hx`.
 
-If `<USERDIR>/.cargo/bin` is part of the `PATH` environment variable, `hx` should be able to be executed anywhere in the shell.
+If `<USERDIR>/.cargo/bin` is part of the `PATH` environment variable, `hx` should be able
+executable anywhere in the shell.
 
 ### arch linux install
 
@@ -98,8 +109,11 @@ pacman -S hex
 
 ### debian install
 
+Browse https://github.com/sitkevij/hex/releases/latest to choose `VERSION` for use with this debian
+installation example:
+
 ```sh
-curl -sLO https://github.com/sitkevij/hex/releases/download/v0.4.2/hx_0.4.2_amd64.deb && dpkg -i hx_0.4.2_amd64.deb
+VERSION=0.6.0 && curl -sLO "https://github.com/sitkevij/hex/releases/download/v$VERSION/hx_$VERSION-1_amd64.deb" && dpkg -i "hx_$VERSION-1_amd64.deb"
 ```
 
 ### guix install
@@ -117,12 +131,17 @@ guix shell --container hex
 ### docker run
 
 ```sh
-cat README.md | docker run -i sitkevij/hx:latest
+# stdin
+cat README.md | docker run -ti sitkevij/hx:latest
+
+# file input with parameters and NO_COLOR environment variable
+echo "NO_COLOR=1" >docker_env_vars.ignore.txt &&
+docker run -ti --env-file docker_env_vars.ignore.txt -v $(pwd)/README.md:/README.md sitkevij/hx:latest -fo -c8 /README.md
 ```
 
 ## features
 
-### output arrays in `rust`, `c`, `golang`, `python`, `kotlin`, `java`, or `swift`
+### output arrays in `rust`, `c`, `golang`, `python`, `fsharp`, `kotlin`, `java`, or `swift`
 
 `hx` has a feature which can output the input file bytes as source code arrays.
 
@@ -192,6 +211,7 @@ let a: [UInt8] = [
 ```
 
 #### fsharp array: -af
+
 ```sh
 $ hx -af -c8 tests/files/tiny.txt
 let a = [|
@@ -205,10 +225,10 @@ let a = [|
 
 Rust `no_color` crate:
 
-* <https://crates.io/crates/no_color>
-* <https://github.com/sitkevij/no_color>
+- <https://crates.io/crates/no_color>
+- <https://github.com/sitkevij/no_color>
 
-## manual
+## help
 
 ```txt
 hx
@@ -223,7 +243,8 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -a, --array <array_format>    Set source code format output: rust (r), C (c), golang (g), python (p), kotlin (k), java (j) [possible values: r, c, g, p, k, j]
+    -a, --array <array_format>    Set source code format output: rust (r), C (c), golang (g), python (p), kotlin (k),
+                                  java (j), swift (s), fsharp (f) [possible values: r, c, g, p, k, j, s, f]
     -t, --color <color>           Set color tint terminal output. 0 to disable, 1 to enable [possible values: 0, 1]
     -c, --cols <columns>          Set column length
     -f, --format <format>         Set format of octet: Octal (o), LowerHex (x), UpperHex (X), Binary (b) [possible
@@ -233,7 +254,7 @@ OPTIONS:
     -p, --places <func_places>    Set function wave output decimal places
 
 ARGS:
-    <INPUTFILE>    Pass file path as an argument for hex dump
+    <INPUTFILE>    Pass file path as an argument, or input data may be passed via stdin
 ```
 
 ## license

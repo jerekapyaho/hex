@@ -1,35 +1,35 @@
 [package]
 authors = ["sitkevij"]
-categories = ["command-line-utilities","development-tools"]
+categories = ["command-line-utilities", "development-tools"]
 description = "Futuristic take on hexdump, made in Rust."
 repository = "https://github.com/sitkevij/hex"
 keywords = ["hexdump", "hexadecimal", "tools", "ascii", "hex"]
-include = ["src/**/*","Cargo.toml","Cargo.lock", "README.md"]
+include = ["src/**/*", "Cargo.toml", "Cargo.lock", "README.md", "hx.1", "tests/**/*"]
 license = "MIT"
 name = "hx"
-readme ="README.md"
-version = "0.4.2"
-edition = "2018"
+readme = "README.md"
+version = "0.6.0"
+edition = "2021"
 
 # see https://doc.rust-lang.org/cargo/reference/manifest.html
 
 # The development profile, used for `cargo build`.
 [profile.dev]
-opt-level = 0      # controls the `--opt-level` the compiler builds with.
-                   # 0-1 is good for debugging. 2 is well-optimized. Max is 3.
-codegen-units = 16  # if > 1 enables parallel code generation which improves
-                   # compile times, but prevents some optimizations.
-                   # Passes `-C codegen-units`. Ignored when `lto = true`.
-panic = 'unwind'   # panic strategy (`-C panic=...`), can also be 'abort'
+opt-level = 0 # controls the `--opt-level` the compiler builds with.
+# 0-1 is good for debugging. 2 is well-optimized. Max is 3.
+codegen-units = 16 # if > 1 enables parallel code generation which improves
+# compile times, but prevents some optimizations.
+# Passes `-C codegen-units`. Ignored when `lto = true`.
+panic = 'unwind' # panic strategy (`-C panic=...`), can also be 'abort'
 
 [profile.release]
 opt-level = 3
 
 [dependencies]
-clap = "2.33"
+clap = "4.4"
 ansi_term = "0.12"
-atty = "0.2"
 no_color = "0.1"
 
 [dev-dependencies]
-assert_cmd = "1.0.1"
+assert_cmd = "2.0"
+rusty-hook = "^0.11"
