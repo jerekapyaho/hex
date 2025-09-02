@@ -141,7 +141,7 @@ docker run -ti --env-file docker_env_vars.ignore.txt -v $(pwd)/README.md:/README
 
 ## features
 
-### output arrays in `rust`, `c`, `golang`, `python`, `fsharp`, `kotlin`, `java`, or `swift`
+### output arrays in `rust`, `c`, `golang`, `python`, `fsharp`, `kotlin`, `java`, `ada`, or `swift`
 
 `hx` has a feature which can output the input file bytes as source code arrays.
 
@@ -254,7 +254,7 @@ FLAGS:
 
 OPTIONS:
     -a, --array <array_format>    Set source code format output: rust (r), C (c), golang (g), python (p), kotlin (k),
-                                  java (j), swift (s), fsharp (f) [possible values: r, c, g, p, k, j, s, f]
+                                  java (j), swift (s), fsharp (f), ada (a) [possible values: r, c, g, p, k, j, s, f, a]
     -t, --color <color>           Set color tint terminal output. 0 to disable, 1 to enable [possible values: 0, 1]
     -c, --cols <columns>          Set column length
     -f, --format <format>         Set format of octet: Octal (o), LowerHex (x), UpperHex (X), Binary (b) [possible
