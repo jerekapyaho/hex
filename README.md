@@ -219,6 +219,16 @@ let a = [|
 |]
 ```
 
+#### ada array: -aa
+
+```sh
+$ hx -aa -c8 tests/files/tiny.txt
+type Array_Type is array (1 .. 3) of Interfaces.Unsigned_8;
+A : Array_Type := (
+    16#69#, 16#6C#, 16#0A#
+);
+```
+
 ### NO_COLOR support
 
 `hx` will honor the NO_COLOR environment variable. If set, no color will be output to the terminal.
