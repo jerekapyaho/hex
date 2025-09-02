@@ -424,6 +424,7 @@ pub fn output_array(
         "j" => writeln!(locked, "byte[] a = new byte[]{{")?,
         "s" => writeln!(locked, "let a: [UInt8] = [")?,
         "f" => writeln!(locked, "let a = [|")?,
+        "a" => writeln!(locked, "type Array_Type is array (1 .. {}) of Interfaces.Unsigned_8;\nA : Array_Type := (", page.bytes)?,
         _ => writeln!(locked, "unknown array format")?,
     }
     let mut i: u64 = 0x0;
@@ -432,15 +433,19 @@ pub fn output_array(
         for hex in line.hex_body.iter() {
             i += 1;
             if i == page.bytes && array_format != "g" {
-                if array_format != "f" {
-                    write!(locked, "{}", Format::LowerHex.format(*hex, true))?;
-                } else {
+                if array_format == "a" {
+                    write!(locked, "16#{}#", Format::UpperHex.format(*hex, false))?;
+                } else if array_format == "f" {
                     write!(locked, "{}uy", Format::LowerHex.format(*hex, true))?;
+                } else {
+                    write!(locked, "{}", Format::LowerHex.format(*hex, true))?;
                 }
-            } else if array_format != "f" {
-                write!(locked, "{}, ", Format::LowerHex.format(*hex, true))?;
-            } else {
+            } else if array_format == "f" {
                 write!(locked, "{}uy; ", Format::LowerHex.format(*hex, true))?;
+            } else if array_format == "a" {
+                write!(locked, "16#{}#, ", Format::UpperHex.format(*hex, false))?;
+            } else {
+                write!(locked, "{}, ", Format::LowerHex.format(*hex, true))?;
             }
         }
         writeln!(locked)?;
@@ -457,6 +462,7 @@ pub fn output_array(
             "k" => ")",
             "s" => "]",
             "f" => "|]",
+            "a" => ");",
             _ => "unknown array format",
         }
     )

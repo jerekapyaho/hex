@@ -65,8 +65,8 @@ fn main() {
                 .short('a')
                 .long(hx::ARG_ARR)
                 .value_name("array_format")
-                .help("Set source code format output: rust (r), C (c), golang (g), python (p), kotlin (k), java (j), swift (s), fsharp (f)")
-                .value_parser(["r", "c", "g", "p", "k", "j", "s", "f"])
+                .help("Set source code format output: rust (r), C (c), golang (g), python (p), kotlin (k), java (j), swift (s), fsharp (f), ada (a)")
+                .value_parser(["r", "c", "g", "p", "k", "j", "s", "f", "a"])
                 .num_args(1)
         )
         .arg(
